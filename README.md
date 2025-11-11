@@ -8,6 +8,23 @@ Aplicação completa (API + frontend) para consolidar métricas diárias de Face
 - **Frontend** em React + Vite com interface responsiva, formulários de integração e visualização em tempo real das métricas de investimento, receita e ROI.
 - Estrutura multiusuário: cada usuário pode conectar suas próprias contas e sincronizar métricas diárias para gerar relatórios.
 
+## Instalação rápida
+
+1. Clone o repositório e acesse a pasta principal:
+
+   ```bash
+   git clone <url-do-repositorio>
+   cd dash
+   ```
+
+2. Configure o backend (ver seção abaixo) e mantenha o servidor FastAPI rodando.
+
+3. Em outro terminal, configure o frontend (ver seção específica) e inicie o servidor de desenvolvimento.
+
+4. Acesse `http://localhost:5173` (porta padrão do Vite) e utilize `http://localhost:8000` como URL da API ao preencher o formulário de login ou cadastro.
+
+> Para implantar em produção, utilize um servidor WSGI/ASGI (como Uvicorn + Gunicorn) para o backend e gere os assets do frontend com `npm run build`, servindo-os com o web server de sua preferência.
+
 ## Pré-requisitos
 
 - Python 3.11+
