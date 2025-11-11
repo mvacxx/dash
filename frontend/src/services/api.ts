@@ -1,14 +1,18 @@
 import axios from 'axios'
 import { ChartMetric } from '../components/MetricsChart'
+import { User } from '../types/user'
+import { Integration } from '../types/integration'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
 })
 
-type FetchMetricsParams = {
-  userId: number
-  startDate: string
-  endDate: string
+export function setAuthToken(token: string | null) {
+  if (token) {
+    api.defaults.headers.common.Authorization = `Bearer ${token}`
+  } else {
+    delete api.defaults.headers.common.Authorization
+  }
 }
 
 export type MetricsResponse = {
@@ -18,8 +22,49 @@ export type MetricsResponse = {
   averageRoi: number
 }
 
-export async function fetchMetrics({ userId, startDate, endDate }: FetchMetricsParams): Promise<MetricsResponse> {
-  const response = await api.get(`/metrics/${userId}`, {
+export type LoginPayload = {
+  email: string
+  password: string
+}
+
+export type LoginResponse = {
+  accessToken: string
+  tokenType: string
+  user: User
+}
+
+export async function login(payload: LoginPayload): Promise<LoginResponse> {
+  const response = await api.post('/auth/login', {
+    email: payload.email,
+    password: payload.password,
+  })
+  const data = response.data
+  const mapped: LoginResponse = {
+    accessToken: data.access_token,
+    tokenType: data.token_type,
+    user: data.user,
+  }
+  setAuthToken(mapped.accessToken)
+  return mapped
+}
+
+export async function registerUser(payload: { name: string; email: string; password: string }) {
+  const response = await api.post('/users', {
+    name: payload.name,
+    email: payload.email,
+    password: payload.password,
+  })
+  return response.data as User
+}
+
+export async function fetchMetrics({
+  startDate,
+  endDate,
+}: {
+  startDate: string
+  endDate: string
+}): Promise<MetricsResponse> {
+  const response = await api.get('/metrics', {
     params: {
       start_date: startDate,
       end_date: endDate,
@@ -52,22 +97,31 @@ type AdSensePayload = {
   clientId: string
   clientSecret: string
   refreshToken: string
+  expiresIn?: number
+  tokenExpiry?: string
 }
 
-export async function connectFacebook(userId: number, payload: FacebookPayload) {
-  return api.post(`/integrations/facebook/${userId}`, {
+export async function connectFacebook(payload: FacebookPayload) {
+  return api.post('/integrations/facebook', {
     account_id: payload.accountId,
     access_token: payload.accessToken,
     business_id: payload.businessId || undefined,
   })
 }
 
-export async function connectAdSense(userId: number, payload: AdSensePayload) {
-  return api.post(`/integrations/adsense/${userId}`, {
+export async function connectAdSense(payload: AdSensePayload) {
+  return api.post('/integrations/adsense', {
     account_id: payload.accountId,
     access_token: payload.accessToken,
     client_id: payload.clientId,
     client_secret: payload.clientSecret,
     refresh_token: payload.refreshToken,
+    expires_in: payload.expiresIn,
+    token_expiry: payload.tokenExpiry,
   })
+}
+
+export async function listIntegrations(): Promise<Integration[]> {
+  const response = await api.get('/integrations')
+  return response.data as Integration[]
 }

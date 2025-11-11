@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict
 
 import requests
@@ -8,6 +8,9 @@ import requests
 
 class GoogleAdSenseClient:
     """Lightweight client for pulling earnings reports from the AdSense Management API."""
+
+    class UnauthorizedError(Exception):
+        """Raised when the API responds with an authorization error."""
 
     def __init__(
         self,
@@ -40,7 +43,12 @@ class GoogleAdSenseClient:
             json=payload,
             timeout=30,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as error:
+            if response.status_code in {401, 403}:
+                raise GoogleAdSenseClient.UnauthorizedError from error
+            raise
         data = response.json()
         rows = data.get("rows", [])
         if not rows:
@@ -50,3 +58,26 @@ class GoogleAdSenseClient:
         if not cells:
             return 0.0
         return float(cells[0].get("value", 0.0))
+
+    @staticmethod
+    def refresh_access_token(
+        client_id: str, client_secret: str, refresh_token: str
+    ) -> Dict[str, str]:
+        response = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        expires_in = int(payload.get("expires_in", 3600))
+        expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        return {
+            "access_token": payload["access_token"],
+            "token_expiry": expiry.isoformat(),
+        }

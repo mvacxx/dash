@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, Iterable, Optional
 
 import asyncio
@@ -9,14 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.integration import IntegrationAccount, IntegrationType
 from ..models.metrics import DailyMetric
-from ..models.user import User
 from .facebook import FacebookAdsClient
 from .google_adsense import GoogleAdSenseClient
-
-
-async def get_user(session: AsyncSession, user_id: int) -> Optional[User]:
-    result = await session.execute(select(User).where(User.id == user_id))
-    return result.scalar_one_or_none()
 
 
 async def get_integrations(
@@ -68,6 +62,40 @@ async def upsert_metric(
     return instance
 
 
+async def _ensure_adsense_access_token(
+    session: AsyncSession, integration: IntegrationAccount
+) -> str:
+    credentials = dict(integration.credentials)
+    now = datetime.now(timezone.utc)
+    should_refresh = True
+
+    token_expiry_raw = credentials.get("token_expiry")
+    if token_expiry_raw:
+        try:
+            expiry = datetime.fromisoformat(token_expiry_raw)
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            should_refresh = expiry <= now + timedelta(minutes=5)
+        except ValueError:
+            should_refresh = True
+    else:
+        should_refresh = True
+
+    if should_refresh:
+        refreshed = await asyncio.to_thread(
+            GoogleAdSenseClient.refresh_access_token,
+            client_id=credentials["client_id"],
+            client_secret=credentials["client_secret"],
+            refresh_token=credentials["refresh_token"],
+        )
+        credentials["access_token"] = refreshed["access_token"]
+        credentials["token_expiry"] = refreshed["token_expiry"]
+        integration.credentials = credentials
+        await session.flush()
+
+    return credentials["access_token"]
+
+
 async def sync_daily_metrics(session: AsyncSession, user_id: int, metric_day: date) -> DailyMetric:
     facebook_integrations = await get_integrations(session, user_id, IntegrationType.FACEBOOK)
     adsense_integrations = await get_integrations(session, user_id, IntegrationType.ADSENSE)
@@ -89,11 +117,39 @@ async def sync_daily_metrics(session: AsyncSession, user_id: int, metric_day: da
 
     for integration in adsense_integrations:
         credentials = integration.credentials
+        access_token = credentials.get("access_token")
+        if not access_token:
+            access_token = await _ensure_adsense_access_token(session, integration)
+        else:
+            now = datetime.now(timezone.utc)
+            expiry_raw = credentials.get("token_expiry")
+            if expiry_raw:
+                try:
+                    expiry = datetime.fromisoformat(expiry_raw)
+                    if expiry.tzinfo is None:
+                        expiry = expiry.replace(tzinfo=timezone.utc)
+                    if expiry <= now + timedelta(minutes=5):
+                        access_token = await _ensure_adsense_access_token(session, integration)
+                except ValueError:
+                    access_token = await _ensure_adsense_access_token(session, integration)
+            else:
+                access_token = await _ensure_adsense_access_token(session, integration)
+
         client = GoogleAdSenseClient(
             account_id=credentials["account_id"],
-            access_token=credentials["access_token"],
+            access_token=access_token,
         )
-        earnings = await asyncio.to_thread(client.fetch_daily_earnings, metric_day)
+
+        try:
+            earnings = await asyncio.to_thread(client.fetch_daily_earnings, metric_day)
+        except GoogleAdSenseClient.UnauthorizedError:
+            access_token = await _ensure_adsense_access_token(session, integration)
+            client = GoogleAdSenseClient(
+                account_id=credentials["account_id"],
+                access_token=access_token,
+            )
+            earnings = await asyncio.to_thread(client.fetch_daily_earnings, metric_day)
+
         total_revenue += earnings
 
     metric = await upsert_metric(

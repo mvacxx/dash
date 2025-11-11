@@ -49,10 +49,29 @@ body {
   gap: 0.5rem;
 }
 
+.user-selector button {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #e2e8f0;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.user-selector button:hover {
+  background: rgba(148, 163, 184, 0.2);
+}
+
 .layout {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1.5rem;
+}
+
+.layout.single-column {
+  grid-template-columns: minmax(280px, 1fr);
 }
 
 .panel {
@@ -180,6 +199,29 @@ body {
   margin: 0;
   color: #38bdf8;
   font-weight: 600;
+}
+
+.integration-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.integration-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.integration-list li {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
 }
 
 .error {

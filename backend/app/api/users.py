@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.user import User
 from ..schemas.user import UserCreate, UserRead
-from .deps import get_db_session
+from .deps import get_current_user, get_db_session
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -23,10 +23,6 @@ async def create_user(payload: UserCreate, session: AsyncSession = Depends(get_d
     return user
 
 
-@router.get("/{user_id}", response_model=UserRead)
-async def read_user(user_id: int, session: AsyncSession = Depends(get_db_session)):
-    result = await session.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return user
+@router.get("/me", response_model=UserRead)
+async def read_user(current_user: User = Depends(get_current_user)):
+    return current_user

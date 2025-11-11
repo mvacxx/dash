@@ -27,17 +27,27 @@ Variáveis de ambiente importantes:
 
 - `DATABASE_URL`: string de conexão SQLAlchemy (padrão usa SQLite local `app.db`).
 - `FACEBOOK_API_VERSION`: versão da Graph API (padrão `v18.0`).
+- `SECRET_KEY`: chave secreta usada para assinar tokens JWT.
+- `ACCESS_TOKEN_EXPIRE_MINUTES`: duração (em minutos) dos tokens emitidos.
+- `SCHEDULER_DAILY_HOUR_UTC` / `SCHEDULER_DAILY_MINUTE_UTC`: horário em UTC para disparar a sincronização automática diária.
 
-### Fluxo de sincronização
+### Autenticação e fluxo de sincronização
 
 1. Crie um usuário `POST /users` com e-mail, nome e senha.
-2. Cadastre as integrações:
-   - `POST /integrations/facebook/{user_id}` com `account_id`, `access_token` (e opcional `business_id`).
-   - `POST /integrations/adsense/{user_id}` com `account_id`, `access_token`, `refresh_token`, `client_id`, `client_secret`.
-3. Solicite a sincronização diária `POST /metrics/sync/{user_id}?date=YYYY-MM-DD`.
-4. Consulte os relatórios `GET /metrics/{user_id}?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`.
+2. Obtenha um token de acesso autenticando-se em `POST /auth/login` (email + senha). O token JWT retornado deve ser enviado no header `Authorization: Bearer <token>`.
+3. Cadastre as integrações autenticadas:
+   - `POST /integrations/facebook` com `account_id`, `access_token` (e opcional `business_id`).
+   - `POST /integrations/adsense` com `account_id`, `access_token`, `refresh_token`, `client_id`, `client_secret` e opcionalmente `expires_in` ou `token_expiry`.
+4. Solicite a sincronização diária manual `POST /metrics/sync?date=YYYY-MM-DD`.
+5. Consulte os relatórios `GET /metrics?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`.
 
 Os clientes `FacebookAdsClient` e `GoogleAdSenseClient` utilizam as rotas oficiais REST; basta fornecer tokens válidos para receber dados reais.
+
+### Sincronização automática
+
+O backend utiliza APScheduler para executar uma tarefa diária (horário configurável via variáveis de ambiente) que dispara `sync_daily_metrics` para todos os usuários cadastrados.
+
+Tokens do Google AdSense são persistidos com dados completos de OAuth (incluindo `refresh_token`). A cada sincronização, o serviço renova automaticamente o `access_token` quando expirado, garantindo chamadas válidas à API.
 
 ## Configuração do frontend
 
@@ -51,8 +61,8 @@ Defina a variável `VITE_API_URL` para apontar para a URL da API FastAPI (por ex
 
 A interface permite:
 
-- Selecionar usuário (ID numérico).
-- Conectar credenciais de Facebook Ads e Google AdSense.
+- Autenticar-se com email/senha (ou registrar um novo usuário).
+- Conectar credenciais de Facebook Ads e Google AdSense com suporte a renovação automática do token do Google.
 - Definir intervalo de datas e visualizar investimento, receita e ROI médio.
 - Visualizar gráfico responsivo de ROI diário.
 
@@ -66,6 +76,5 @@ Tabelas principais:
 
 ## Próximos passos sugeridos
 
-- Implementar autenticação JWT para proteger as rotas.
-- Criar tarefas agendadas (Celery/APS) para sincronização automática diária.
-- Persistir tokens do Google usando OAuth completo (renovando access token com `refresh_token`).
+- Adicionar remoção/edição de integrações via interface.
+- Implementar notificações quando sincronizações automáticas falharem.

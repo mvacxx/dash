@@ -2,7 +2,6 @@ import { FormEvent, useState } from 'react'
 import { connectAdSense, connectFacebook } from '../services/api'
 
 type Props = {
-  userId: number
   onConnected: () => void
 }
 
@@ -18,6 +17,8 @@ type GoogleForm = {
   clientId: string
   clientSecret: string
   refreshToken: string
+  expiresIn?: string
+  tokenExpiry?: string
 }
 
 const initialFacebook: FacebookForm = {
@@ -32,9 +33,11 @@ const initialGoogle: GoogleForm = {
   clientId: '',
   clientSecret: '',
   refreshToken: '',
+  expiresIn: '',
+  tokenExpiry: '',
 }
 
-export function IntegrationForm({ userId, onConnected }: Props) {
+export function IntegrationForm({ onConnected }: Props) {
   const [facebookForm, setFacebookForm] = useState<FacebookForm>(initialFacebook)
   const [googleForm, setGoogleForm] = useState<GoogleForm>(initialGoogle)
   const [feedback, setFeedback] = useState<string>('')
@@ -44,7 +47,7 @@ export function IntegrationForm({ userId, onConnected }: Props) {
     event.preventDefault()
     setIsSubmitting(true)
     try {
-      await connectFacebook(userId, facebookForm)
+      await connectFacebook(facebookForm)
       setFeedback('Conta do Facebook Ads conectada com sucesso!')
       setFacebookForm(initialFacebook)
       onConnected()
@@ -60,7 +63,15 @@ export function IntegrationForm({ userId, onConnected }: Props) {
     event.preventDefault()
     setIsSubmitting(true)
     try {
-      await connectAdSense(userId, googleForm)
+      await connectAdSense({
+        accountId: googleForm.accountId,
+        accessToken: googleForm.accessToken,
+        clientId: googleForm.clientId,
+        clientSecret: googleForm.clientSecret,
+        refreshToken: googleForm.refreshToken,
+        expiresIn: googleForm.expiresIn ? Number(googleForm.expiresIn) : undefined,
+        tokenExpiry: googleForm.tokenExpiry || undefined,
+      })
       setFeedback('Conta do Google AdSense conectada com sucesso!')
       setGoogleForm(initialGoogle)
       onConnected()
@@ -133,6 +144,22 @@ export function IntegrationForm({ userId, onConnected }: Props) {
             required
             value={googleForm.refreshToken}
             onChange={(event) => setGoogleForm({ ...googleForm, refreshToken: event.target.value })}
+          />
+        </label>
+        <label>
+          Expira em (segundos)
+          <input
+            value={googleForm.expiresIn}
+            onChange={(event) => setGoogleForm({ ...googleForm, expiresIn: event.target.value })}
+            placeholder="3600"
+          />
+        </label>
+        <label>
+          Data de expiração (ISO 8601)
+          <input
+            value={googleForm.tokenExpiry}
+            onChange={(event) => setGoogleForm({ ...googleForm, tokenExpiry: event.target.value })}
+            placeholder="2024-01-01T00:00:00Z"
           />
         </label>
         <label>

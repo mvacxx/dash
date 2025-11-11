@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -23,12 +23,20 @@ class AdSenseIntegrationCreate(BaseModel):
     refresh_token: str = Field(..., description="OAuth refresh token with adsense scope")
     client_id: str = Field(..., description="Google OAuth client id")
     client_secret: str = Field(..., description="Google OAuth client secret")
+    token_expiry: Optional[datetime] = Field(
+        default=None,
+        description="Expiration datetime of the provided access token (UTC)",
+    )
+    expires_in: Optional[int] = Field(
+        default=None,
+        description="Seconds until the provided access token expires",
+    )
 
 
 class IntegrationRead(BaseModel):
     id: int
     type: Literal["facebook_ads", "google_adsense"]
-    credentials: Dict[str, str]
+    credentials: Dict[str, Any]
     created_at: datetime
 
     class Config:
