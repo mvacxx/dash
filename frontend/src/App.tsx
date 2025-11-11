@@ -159,12 +159,24 @@ export default function App() {
   )
 
   useEffect(() => {
+    setAuthToken(token || null)
+  }, [token])
+
+  useEffect(() => {
     if (!token) {
       setNotifications([])
       return
     }
-    loadIntegrations()
-    loadNotifications()
+    void loadIntegrations()
+    void loadNotifications()
+
+    const intervalId = window.setInterval(() => {
+      void loadNotifications()
+    }, 60_000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
   }, [token, loadIntegrations, loadNotifications])
 
   const rangeLabel = useMemo(() => {
