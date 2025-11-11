@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from .api import auth, integrations, metrics, users
+from .api import auth, integrations, metrics, notifications, users
 from .core.config import get_settings
 from .core.database import engine
 from .models.base import Base
@@ -31,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router)
     app.include_router(integrations.router)
     app.include_router(metrics.router)
+    app.include_router(notifications.router)
 
     return app
 

@@ -2,6 +2,7 @@ import axios from 'axios'
 import { ChartMetric } from '../components/MetricsChart'
 import { User } from '../types/user'
 import { Integration } from '../types/integration'
+import { SyncNotification } from '../types/notification'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
@@ -124,4 +125,44 @@ export async function connectAdSense(payload: AdSensePayload) {
 export async function listIntegrations(): Promise<Integration[]> {
   const response = await api.get('/integrations')
   return response.data as Integration[]
+}
+
+export async function updateFacebookIntegration(
+  integrationId: number,
+  payload: Partial<FacebookPayload> & { businessId?: string; apiVersion?: string }
+) {
+  return api.put(`/integrations/facebook/${integrationId}`, {
+    account_id: payload.accountId,
+    access_token: payload.accessToken,
+    business_id: payload.businessId,
+    api_version: payload.apiVersion,
+  })
+}
+
+export async function updateAdSenseIntegration(
+  integrationId: number,
+  payload: Partial<AdSensePayload>
+) {
+  return api.put(`/integrations/adsense/${integrationId}`, {
+    account_id: payload.accountId,
+    access_token: payload.accessToken,
+    client_id: payload.clientId,
+    client_secret: payload.clientSecret,
+    refresh_token: payload.refreshToken,
+    token_expiry: payload.tokenExpiry,
+    expires_in: payload.expiresIn,
+  })
+}
+
+export async function deleteIntegration(integrationId: number) {
+  await api.delete(`/integrations/${integrationId}`)
+}
+
+export async function listNotifications(): Promise<SyncNotification[]> {
+  const response = await api.get('/notifications')
+  return response.data as SyncNotification[]
+}
+
+export async function markNotificationRead(notificationId: number) {
+  await api.post(`/notifications/${notificationId}/read`)
 }
